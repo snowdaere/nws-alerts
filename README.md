@@ -18,6 +18,7 @@ Or you can make it executable with chmod and run it more compactly:
 chmod +x main.py
 ./main.py
 ```
+You can exit the application with 'Q', and refresh and jump to the top of the list with 'R'.
 
 ## Configuration
 Configuration information can be found and changed by editing the variables in main.py. You can request certain types of alerts from certain
