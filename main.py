@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/python3
 import urwid as u
 import playsound
 import pandas as pd
@@ -19,7 +19,7 @@ LIMIT = 500
 REGION_TYPE = 'land'
 # UPDATE_TIME is the number of seconds between checking for new alerts. Default is 5 minutes
 # The NWS API info is here: https://www.weather.gov/documentation/services-web-api#/
-UPDATE_TIME = 3
+UPDATE_TIME = 60
 # AREAS is a list of states you want to check for alerts. You can leave it
 # empty to recieve alerts for all areas. Use postal codes, ie. 'PA' or 'NM'
 AREAS = ['']
@@ -44,7 +44,7 @@ WEIGHTS = (30, 70)
 # COLORS is the palette used to draw the application, using the default 16 colors of your terminal
 COLORS = {
     ("bg",               "white", "default"),
-    ("alert",          "white", "default"),
+    ("alert",          "default", "default"),
     ("alert_selected", "dark blue",       "white"),
     ("header",           "white, bold", "dark blue"),
 }
@@ -59,7 +59,7 @@ class ListItem(u.WidgetWrap):
         # extract desired data from series and wrap in columns object
         row = u.Columns([u.Text(str(data), align='left', wrap='clip')
                         for data in row[COLUMNS]], dividechars=1)
-        r = u.AttrWrap(row, 'alert', 'alert_selected')
+        r = u.AttrWrap(row, None, 'alert_selected')
         u.WidgetWrap.__init__(self, r)
 
     def selectable(self):
@@ -93,9 +93,16 @@ class ListView(u.WidgetWrap):
 
     def extend(self, list: List[ListItem]):
         '''retrieve new list of active alerts'''
-        self.walker.extend(list)
+        # insert each item at beginning of list
+        for item in list:
+            self.walker.insert(0, item)
+        # update walker
         u.connect_signal(self.walker, "modified", self.modified)
-
+        # # scroll to top to show new alerts, then return to previous position
+        # _, i = self.walker.get_focus()
+        # self.walker.set_focus(0)
+        # self.walker.set_focus(i)
+        # this currently doesnt work
 
 class DetailView(u.WidgetWrap):
     def __init__(self):
@@ -154,7 +161,7 @@ class App(object):
         u.connect_signal(self.list_view, 'show_details', self.show_details)
 
         footer = u.AttrWrap(
-            u.Text(" Q to exit -- R to clear and refresh"), "header")
+            u.Text(" Q to exit - R to clear and refresh - Scroll Up to view new alerts"), "header")
 
         col_rows = u.raw_display.Screen().get_cols_rows()
         h = col_rows[0] - 2
@@ -198,9 +205,10 @@ class App(object):
                 # BELL 0104.wav by zgump -- https://freesound.org/s/83541/ -- License: Creative Commons 0
                 playsound.playsound('83541__zgump__bell-0104.wav', block=False)
 
-            # append dif to old alerts list
-            alert_widgets = [ListItem(r) for i, r in dif.iterrows()]
-            self.list_view.extend(alert_widgets)
+                # append dif to old alerts list
+                self.alerts = pd.concat([dif, self.alerts])
+                alert_widgets = [ListItem(r) for i, r in dif.iterrows()]
+                self.list_view.extend(alert_widgets)
             self.loop.screen.clear()
             self.loop.draw_screen()
 
