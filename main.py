@@ -22,17 +22,17 @@ REGION_TYPE = 'land'
 UPDATE_TIME = 60
 # AREAS is a list of states you want to check for alerts. You can leave it
 # empty to recieve alerts for all areas. Use postal codes, ie. 'PA' or 'NM'
-AREAS = ['']
+AREAS = []
 # EVENTS is a list of event types you want to filter for,
 # for example 'Red Flag Warning' or 'Tornado Watch'. A complete list of
 # Alerts and their definitions can be found here: https://www.weather.gov/lwx/warningsdefined
-EVENTS = ['']
+EVENTS = ['Red Flag Warning']
 # COLUMNS is a list of columns you wish to appear in the table. The following are available:
-# ['id', 'areaDesc', 'geocode', 'affectedZones',
-#  'references', 'sent', 'effective', 'onset', 'expires', 'ends', 'status',
-#  'messageType', 'category', 'severity', 'certainty', 'urgency', 'event',
-#  'sender', 'senderName', 'headline', 'description', 'instruction',
-#  'response', 'parameters', 'geometry']
+VIABLE = ['id', 'areaDesc', 'geocode', 'affectedZones',
+          'references', 'sent', 'effective', 'onset', 'expires', 'ends', 'status',
+          'messageType', 'category', 'severity', 'certainty', 'urgency', 'event',
+          'sender', 'senderName', 'headline', 'description', 'instruction',
+          'response', 'parameters', 'geometry']
 COLUMNS = ['areaDesc', 'event', 'certainty', 'effective']
 # FOCUS_CONTENTS is a list of information you wish to display in the focused alert window.
 # The available contents are the same as above for COLUMNS.
@@ -81,9 +81,19 @@ class ListView(u.WidgetWrap):
         focus_w, _ = self.walker.get_focus()
         u.emit_signal(self, 'show_details', focus_w.content)
 
-    def set_data(self, alerts):
+    def set_data(self, alerts: pd.DataFrame):
+        # account for no alerts
+        if len(alerts.index) > 0:
+            alert_widgets = [ListItem(r) for i, r in alerts.iterrows()]
+        else:
+            # create empty dataframe to display
+            r1 = pd.DataFrame([['' for i in VIABLE]])
+            blank = pd.DataFrame(columns = VIABLE)
 
-        alert_widgets = [ListItem(r) for i, r in alerts.iterrows()]
+            print(blank)
+            blank = pd.concat([blank, r1])
+            print(blank)
+            alert_widgets = [ListItem(r) for i, r in blank.iterrows()]
         u.disconnect_signal(self.walker, 'modified', self.modified)
         while len(self.walker) > 0:
             self.walker.pop()
@@ -98,11 +108,11 @@ class ListView(u.WidgetWrap):
             self.walker.insert(0, item)
         # update walker
         u.connect_signal(self.walker, "modified", self.modified)
-        # # scroll to top to show new alerts, then return to previous position
-        # _, i = self.walker.get_focus()
-        # self.walker.set_focus(0)
-        # self.walker.set_focus(i)
-        # this currently doesnt work
+        # scroll to top to show new alerts, then return to previous position
+        # this exists to keep the detail view on the focused alert after it updates
+        _, i = self.walker.get_focus()
+        self.walker.set_focus(i)
+
 
 class DetailView(u.WidgetWrap):
     def __init__(self):
@@ -124,21 +134,25 @@ def unpack_dictionary(d: dict) -> str:
     return string
 
 
-def get_active(area: List[str] = [''], event: List[str] = ['']) -> pd.DataFrame():
+def get_active(area: List[str], event: List[str]) -> pd.DataFrame():
     '''returns list of active alerts from the NWS'''
     # define default api extension
     EXTENSION = f'alerts/active?status=actual&message_type=alert,update&limit={LIMIT}&region_type={REGION_TYPE}'
 
     # specifying an area is optional
-    if area != ['']:
-        EXTENSION += f'&area={",".join(area)}'
+    # if area != []:
+    #     EXTENSION += f'&area={",".join(area)}'
     # specifying an event type is optional as well
-    if event != ['']:
-        EXTENSION += f'&event={",".join(event)}'
+    # if event != ['']:
+    #     EXTENSION += f'&event={",".join(event)}'
 
-    # dial api
+    request = requests.get(URL + EXTENSION)
     with open('/dev/null') as sys.stderr:
-        return gpd.read_file(requests.get(URL + EXTENSION).text, driver='GeoJSON', utc=True)
+        df = gpd.read_file(request.text, driver='GeoJSON', utc=True)
+    # filter by desired event types:
+    if event != []:
+        df = df[df.event.isin(event)]
+    return df
 
 
 class App(object):
