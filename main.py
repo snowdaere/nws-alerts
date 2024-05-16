@@ -26,7 +26,7 @@ AREAS = []
 # EVENTS is a list of event types you want to filter for,
 # for example 'Red Flag Warning' or 'Tornado Watch'. A complete list of
 # Alerts and their definitions can be found here: https://www.weather.gov/lwx/warningsdefined
-EVENTS = ['Red Flag Warning']
+EVENTS = []
 # COLUMNS is a list of columns you wish to appear in the table. The following are available:
 VIABLE = ['id', 'areaDesc', 'geocode', 'affectedZones',
           'references', 'sent', 'effective', 'onset', 'expires', 'ends', 'status',
